@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import healthRoutes from "./routes/health.routes";
 import authRoutes from "./routes/auth.routes";
 import channelRoutes from "./routes/channel.routes";
+import videoRoutes from "./routes/video.routes";
 
 const app = express();
 
@@ -40,5 +41,6 @@ app.get("/", (_req, res) => {
 app.use("/api/v1/health", healthRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/channels", channelRoutes);
+app.use("/api/v1/videos", videoRoutes);
 
 export default app;
