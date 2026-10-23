@@ -1,0 +1,32 @@
+
+# Dependencies and package stores
+node_modules/
+.pnpm-store/
+.pnpm-store
+.pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+atlas-credentials.env
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# Editor and operating system files
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db

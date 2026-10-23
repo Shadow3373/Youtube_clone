@@ -1,0 +1,17 @@
+{
+  "name": "StreamSphere",
+  "version": "1.0.0",
+  "description": "",
+    "scripts": {
+      "dev:web": "pnpm --filter web dev",
+      "dev:studio": "pnpm --filter studio dev",
+      "dev:api": "pnpm --filter api dev",
+      "build:web": "pnpm --filter web build",
+      "build:studio": "pnpm --filter studio build",
+      "build:api": "pnpm --filter api build"
+    },
+  "keywords": [],
+  "author": "Manikandan-N",
+  "license": "ISC",
+  "packageManager": "pnpm@10.16.0"
+}
