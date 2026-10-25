@@ -7,6 +7,7 @@ import healthRoutes from "./routes/health.routes";
 import authRoutes from "./routes/auth.routes";
 import channelRoutes from "./routes/channel.routes";
 import videoRoutes from "./routes/video.routes";
+import muxWebhookRoutes from "./routes/muxWebhook.routes";
 
 const app = express();
 
@@ -26,6 +27,12 @@ app.use(
         origin: allowedOrigins,
         credentials: true
     })
+);
+
+app.use(
+  "/api/v1/webhooks/mux",
+  express.raw({ type: "application/json", limit: "1mb" }),
+  muxWebhookRoutes,
 );
 
 app.use(express.json({ limit: "1mb" }));

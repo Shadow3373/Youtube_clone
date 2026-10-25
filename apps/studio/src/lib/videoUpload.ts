@@ -1,4 +1,3 @@
-
 import * as UpChunk from "@mux/upchunk";
 
 const API_BASE =
@@ -9,10 +8,12 @@ export type VideoUploadInput = {
   title: string;
   description: string;
   visibility: "private" | "public" | "unlisted";
+  videoId?: string;
   onProgress?: (percent: number) => void;
 };
 
 export type VideoUploadResult = {
+  success?: boolean;
   video: {
     id: string;
     title: string;
@@ -31,13 +32,22 @@ export async function uploadVideo({
   title,
   description,
   visibility,
+  videoId,
   onProgress,
 }: VideoUploadInput): Promise<VideoUploadResult> {
-  if (!file.type.startsWith("video/")) {
-    throw new Error("Please select a video file.");
+  const supportedVideo =
+    file.type.startsWith("video/") ||
+    /\.(mp4|mov|webm|m4v|avi|mkv)$/i.test(file.name);
+
+  if (!supportedVideo) {
+    throw new Error("Please select a supported video file.");
   }
 
-  const response = await fetch(`${API_BASE}/videos/uploads`, {
+  const endpoint = videoId
+    ? `${API_BASE}/videos/${encodeURIComponent(videoId)}/uploads`
+    : `${API_BASE}/videos/uploads`;
+
+  const response = await fetch(endpoint, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -50,6 +60,10 @@ export async function uploadVideo({
     throw new Error(
       result?.message || "Could not create the video upload.",
     );
+  }
+
+  if (!result?.video?.id || !result?.upload?.url) {
+    throw new Error("The server returned an invalid upload response.");
   }
 
   const data = result as VideoUploadResult;
