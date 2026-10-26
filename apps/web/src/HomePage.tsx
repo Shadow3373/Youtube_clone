@@ -131,16 +131,16 @@ export default function App() {
 
   const featuredVideo = videos[0];
 
-  const handleSelectVideo = (video: VideoItem) => {
-    if (!video.playbackId?.trim()) {
-      window.alert(
-        "This video is not ready for playback yet. Please try again later.",
-      );
-      return;
-    }
+  // const handleSelectVideo = (video: VideoItem) => {
+  //   if (!video.playbackId?.trim()) {
+  //     window.alert(
+  //       "This video is not ready for playback yet. Please try again later.",
+  //     );
+  //     return;
+  //   }
 
-    setSelectedVideo(video);
-  };
+  //   setSelectedVideo(video);
+  // };
 
   return (
     <div className="stream-app">
