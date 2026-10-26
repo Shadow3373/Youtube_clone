@@ -5,11 +5,15 @@ import {
   resumeVideoUpload,
   createVideoDraft,
   getMyVideos,
+  getPublicVideos,
   updateMyVideo,
   deleteMyVideo,
 } from "../controllers/video.controller";
 
 const router = Router();
+
+// Public viewer-facing endpoint — no authentication required.
+router.get("/public", getPublicVideos);
 
 router.get("/", authenticate, getMyVideos);
 

@@ -714,3 +714,128 @@ export async function deleteMyVideo(req: Request, res: Response) {
     });
   }
 }
+
+
+export async function getPublicVideos(req: Request, res: Response) {
+  const page = Math.max(
+    1,
+    Number.parseInt(String(req.query.page ?? "1"), 10) || 1,
+  );
+
+  const limit = Math.min(
+    24,
+    Math.max(
+      1,
+      Number.parseInt(String(req.query.limit ?? "12"), 10) || 12,
+    ),
+  );
+
+  const search =
+    typeof req.query.search === "string"
+      ? req.query.search.trim().slice(0, 100)
+      : "";
+
+  try {
+    // Only videos from active channels may appear publicly.
+    const activeChannels = await Channel.find({ status: "active" })
+      .select("_id")
+      .lean();
+
+    const activeChannelIds = activeChannels.map((channel) => channel._id);
+
+    const filter: Record<string, unknown> = {
+      status: "ready",
+      visibility: "public",
+      playbackId: { $nin: [null, ""] },
+      channelId: { $in: activeChannelIds },
+    };
+
+    if (search) {
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escapedSearch, "i");
+
+      const matchingChannels = await Channel.find({
+        status: "active",
+        $or: [{ name: regex }, { handle: regex }],
+      })
+        .select("_id")
+        .lean();
+
+      const matchingChannelIds = matchingChannels.map(
+        (channel) => channel._id,
+      );
+
+      filter.$or = [
+        { title: regex },
+        { description: regex },
+        { channelId: { $in: matchingChannelIds } },
+      ];
+    }
+
+    const [videos, total] = await Promise.all([
+      Video.find(filter)
+        .select(
+          "_id channelId title description thumbnailUrl playbackId durationSeconds createdAt",
+        )
+        .populate({
+          path: "channelId",
+          select: "name handle avatarUrl",
+        })
+        .sort({ createdAt: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+
+      Video.countDocuments(filter),
+    ]);
+
+    const publicVideos = videos
+      .filter((video) => video.channelId)
+      .map((video) => {
+        const channel = video.channelId as unknown as {
+          _id: mongoose.Types.ObjectId;
+          name: string;
+          handle: string;
+          avatarUrl: string | null;
+        };
+
+        return {
+          id: video._id.toString(),
+          title: video.title,
+          description: video.description,
+          thumbnailUrl:
+            video.thumbnailUrl ||
+            `https://image.mux.com/${video.playbackId}/thumbnail.jpg?time=1`,
+          playbackId: video.playbackId,
+          durationSeconds: video.durationSeconds,
+          createdAt: video.createdAt,
+          channel: {
+            id: channel._id.toString(),
+            name: channel.name,
+            handle: channel.handle,
+            avatarUrl: channel.avatarUrl,
+          },
+        };
+      });
+
+    return res.status(200).json({
+      success: true,
+      videos: publicVideos,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    });
+  } catch (error) {
+    console.error("Get public videos failed:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load public videos. Please try again.",
+    });
+  }
+}
