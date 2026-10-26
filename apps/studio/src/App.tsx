@@ -490,6 +490,9 @@ function App() {
 
   const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
 
+  const [resumingDraft, setResumingDraft] =
+    useState<VideoItem | null>(null);
+
 
 
 
@@ -502,18 +505,42 @@ function App() {
 
 
 
+  function resetUploadForm() {
+    setUploadTitle("");
+    setUploadDescription("");
+    setUploadVisibility("private");
+    setSelectedFile(null);
+    setUploadProgress(0);
+    setUploadError("");
+  }
+
   function openUpload() {
+    setNotice("");
+    setPage("Content");
+    setSidebarOpen(false);
+    setShowProfile(false);
+    resetUploadForm();
+    setResumingDraft(null);
+    setUploadOpen(true);
+  }
+
+  function handleContinueUpload(video: VideoItem) {
+    if (video.id.startsWith("local-draft-")) {
+      setNotice("This draft is not saved in the backend yet.");
+      return;
+    }
 
     setNotice("");
-
     setPage("Content");
-
     setSidebarOpen(false);
-
     setShowProfile(false);
+    resetUploadForm();
 
+    setResumingDraft(video);
+    setUploadTitle(video.title);
+    setUploadDescription(video.description);
+    setUploadVisibility(video.visibility);
     setUploadOpen(true);
-
   }
 
 
@@ -837,57 +864,64 @@ function App() {
 
 
 
+
     try {
+      if (resumingDraft) {
+        const response = await fetch(
+          `${API_BASE}/videos/${encodeURIComponent(resumingDraft.id)}`,
+          {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: uploadTitle.trim(),
+              description: uploadDescription.trim(),
+              visibility: uploadVisibility,
+            }),
+          },
+        );
 
-      await createVideoDraft({
+        const result = await response.json().catch(() => null);
 
-        title: uploadTitle.trim(),
-
-        description: uploadDescription.trim(),
-
-        visibility: uploadVisibility,
-
-      });
-
-
+        if (!response.ok) {
+          throw new Error(
+            result?.message || "Unable to update the saved draft.",
+          );
+        }
+      } else {
+        await createVideoDraft({
+          title: uploadTitle.trim(),
+          description: uploadDescription.trim(),
+          visibility: uploadVisibility,
+        });
+      }
 
       const refreshedVideos = await fetchMyVideos();
-
       setVideos(refreshedVideos);
 
-
-
-      setUploadTitle("");
-
-      setUploadDescription("");
-
-      setUploadVisibility("private");
-
-      setSelectedFile(null);
-
       setUploadOpen(false);
+      setUploadTitle("");
+      setUploadDescription("");
+      setUploadVisibility("private");
+      setSelectedFile(null);
+      setUploadProgress(0);
+      setResumingDraft(null);
 
-
-
-      setNotice("Draft saved successfully. You can continue editing it later.");
-
-    } catch (error) {
-
-      setUploadError(
-
-        error instanceof Error
-
-          ? error.message
-
-          : "Unable to save your draft. Please try again.",
-
+      setNotice(
+        resumingDraft
+          ? "Draft updated successfully."
+          : "Draft saved successfully. You can continue editing it later.",
       );
-
+    } catch (error) {
+      setUploadError(
+        error instanceof Error
+          ? error.message
+          : "Unable to save your draft. Please try again.",
+      );
     } finally {
-
       setSavingDraft(false);
-
     }
+
 
   }
 
@@ -934,20 +968,13 @@ function App() {
     try {
 
       await uploadVideo({
-
         file: selectedFile,
-
         title: uploadTitle.trim(),
-
         description: uploadDescription.trim(),
-
         visibility: uploadVisibility,
-
+        ...(resumingDraft ? { videoId: resumingDraft.id } : {}),
         onProgress: (percent) => setUploadProgress(percent),
-
       });
-
-
 
       const refreshedVideos = await fetchMyVideos();
 
@@ -962,6 +989,8 @@ function App() {
       setUploadVisibility("private");
 
       setSelectedFile(null);
+
+      setResumingDraft(null);
 
       setUploadProgress(0);
 
@@ -1429,6 +1458,8 @@ function App() {
 
                   onDelete={handleDeleteVideo}
 
+                  onContinueUpload={handleContinueUpload}
+
                   actionMenuId={actionMenuId}
 
                   setActionMenuId={setActionMenuId}
@@ -1542,6 +1573,8 @@ function App() {
                       onEdit={openEditVideo}
 
                       onDelete={handleDeleteVideo}
+
+                      onContinueUpload={handleContinueUpload}
 
                       actionMenuId={actionMenuId}
 

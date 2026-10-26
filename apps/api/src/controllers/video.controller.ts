@@ -12,36 +12,47 @@ export async function createVideoUpload(
   const ownerId = res.locals.userId as string | undefined;
 
   if (!ownerId || !mongoose.isValidObjectId(ownerId)) {
-    return res.status(401).json({ message: "Please sign in again." });
+    return res.status(401).json({
+      success: false,
+      message: "Please sign in again.",
+    });
   }
 
   const title =
-    typeof req.body?.title === "string" ? req.body.title.trim() : "";
+    typeof req.body?.title === "string"
+      ? req.body.title.trim()
+      : "";
 
   const description =
     typeof req.body?.description === "string"
       ? req.body.description.trim()
       : "";
 
-  if (title.length < 1 || title.length > 100) {
+  const visibility = req.body?.visibility ?? "private";
+
+  if (!title || title.length > 100) {
     return res.status(400).json({
+      success: false,
       message: "Title must be between 1 and 100 characters.",
     });
   }
 
   if (description.length > 5000) {
     return res.status(400).json({
+      success: false,
       message: "Description cannot exceed 5000 characters.",
     });
   }
 
-  const visibility = req.body?.visibility ?? "private";
-
   if (!["private", "public", "unlisted"].includes(visibility)) {
-    return res.status(400).json({ message: "Invalid video visibility." });
+    return res.status(400).json({
+      success: false,
+      message: "Invalid video visibility.",
+    });
   }
 
   let video: InstanceType<typeof Video> | null = null;
+  let muxUploadId: string | null = null;
 
   try {
     const channel = await Channel.findOne({
@@ -51,8 +62,15 @@ export async function createVideoUpload(
 
     if (!channel) {
       return res.status(403).json({
+        success: false,
         message: "Create an active channel before uploading videos.",
       });
+    }
+
+    const corsOrigin = process.env.MUX_CORS_ORIGIN;
+
+    if (!corsOrigin) {
+      throw new Error("MUX_CORS_ORIGIN is not configured.");
     }
 
     video = await Video.create({
@@ -64,25 +82,23 @@ export async function createVideoUpload(
       status: "waiting_for_upload",
     });
 
-    const corsOrigin = process.env.MUX_CORS_ORIGIN;
-
-    if (!corsOrigin) {
-      throw new Error("MUX_CORS_ORIGIN is not configured.");
-    }
-
     const upload = await mux.video.uploads.create({
       cors_origin: corsOrigin,
       new_asset_settings: {
-        playback_policies: ["public"],
+        playback_policies:
+          visibility === "private" ? ["signed"] : ["public"],
         video_quality: "basic",
         passthrough: video._id.toString(),
       },
     });
 
+    muxUploadId = upload.id;
+
     video.muxUploadId = upload.id;
     await video.save();
 
     return res.status(201).json({
+      success: true,
       message: "Upload created successfully.",
       video: {
         id: video._id.toString(),
@@ -97,13 +113,55 @@ export async function createVideoUpload(
       },
     });
   } catch (error) {
-    if (video) {
-      await Video.deleteOne({ _id: video._id }).catch(() => undefined);
-    }
-
     console.error("Create video upload failed:", error);
 
+    let safeToDeleteVideo = !muxUploadId;
+
+    if (muxUploadId) {
+      try {
+        await mux.video.uploads.cancel(muxUploadId);
+        safeToDeleteVideo = true;
+      } catch (cancelError) {
+        console.error(
+          "Failed to cancel Mux upload; preserving video record:",
+          cancelError,
+        );
+
+        // Keep the record from being treated as a fresh draft.
+        // Persist the upload ID if the database is available again.
+        if (video) {
+          await Video.updateOne(
+            { _id: video._id, ownerId },
+            {
+              $set: {
+                muxUploadId,
+                status: "waiting_for_upload",
+              },
+            },
+          ).catch((persistError) => {
+            console.error(
+              "Failed to persist orphaned upload ID:",
+              persistError,
+            );
+          });
+        }
+      }
+    }
+
+    if (video && safeToDeleteVideo) {
+      await Video.deleteOne({
+        _id: video._id,
+        ownerId,
+      }).catch((deleteError) => {
+        console.error(
+          "Failed to clean up video record:",
+          deleteError,
+        );
+      });
+    }
+
     return res.status(500).json({
+      success: false,
       message: "Unable to create a video upload. Please try again.",
     });
   }
@@ -127,20 +185,64 @@ export async function resumeVideoUpload(req: Request, res: Response) {
     });
   }
 
+  const { title, description, visibility } = req.body ?? {};
+  const normalizedTitle =
+    typeof title === "string" ? title.trim() : "";
+  const normalizedDescription =
+    typeof description === "string" ? description.trim() : "";
+
+  if (!normalizedTitle || normalizedTitle.length > 100) {
+    return res.status(400).json({
+      success: false,
+      message: "Title is required and must be 100 characters or fewer.",
+    });
+  }
+
+  if (
+    description !== undefined &&
+    typeof description !== "string"
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "Description must be a string.",
+    });
+  }
+
+  if (normalizedDescription.length > 5000) {
+    return res.status(400).json({
+      success: false,
+      message: "Description must be 5000 characters or fewer.",
+    });
+  }
+
+  if (!["private", "public", "unlisted"].includes(visibility)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid video visibility.",
+    });
+  }
+
   let claimedVideoId: string | null = null;
+  let muxUploadId: string | null = null;
 
   try {
-    // Claim the draft atomically so two requests cannot start uploads
-    // for the same draft at the same time.
     const video = await Video.findOneAndUpdate(
       {
         _id: videoId,
         ownerId,
         status: "draft",
-        muxUploadId: { $exists: false },
+        $or: [
+          { muxUploadId: { $exists: false } },
+          { muxUploadId: null },
+        ],
       },
       {
-        $set: { status: "waiting_for_upload" },
+        $set: {
+          status: "waiting_for_upload",
+          title: normalizedTitle,
+          description: normalizedDescription,
+          visibility,
+        },
       },
       {
         new: true,
@@ -181,11 +283,14 @@ export async function resumeVideoUpload(req: Request, res: Response) {
     const upload = await mux.video.uploads.create({
       cors_origin: corsOrigin,
       new_asset_settings: {
-        playback_policies: ["public"],
+        playback_policies:
+          visibility === "private" ? ["signed"] : ["public"],
         video_quality: "basic",
         passthrough: video._id.toString(),
       },
     });
+
+    muxUploadId = upload.id;
 
     video.muxUploadId = upload.id;
     await video.save();
@@ -206,23 +311,69 @@ export async function resumeVideoUpload(req: Request, res: Response) {
       },
     });
   } catch (error) {
-    // Restore the draft state if upload creation fails, allowing
-    // the creator to try again.
-    if (claimedVideoId) {
-      await Video.updateOne(
-        {
-          _id: claimedVideoId,
-          ownerId,
-          status: "waiting_for_upload",
-          muxUploadId: { $exists: false },
-        },
-        {
-          $set: { status: "draft" },
-        },
-      ).catch(() => undefined);
+    console.error("Resume video upload failed:", error);
+
+    let canRestoreDraft = !muxUploadId;
+
+    if (muxUploadId) {
+      try {
+        await mux.video.uploads.cancel(muxUploadId);
+        canRestoreDraft = true;
+      } catch (cancelError) {
+        console.error(
+          "Failed to cancel Mux upload; preserving upload state:",
+          cancelError,
+        );
+
+        if (claimedVideoId) {
+          await Video.updateOne(
+            {
+              _id: claimedVideoId,
+              ownerId,
+              status: "waiting_for_upload",
+            },
+            {
+              $set: { muxUploadId },
+            },
+          ).catch((persistError) => {
+            console.error(
+              "Failed to persist Mux upload ID:",
+              persistError,
+            );
+          });
+        }
+      }
     }
 
-    console.error("Resume video upload failed:", error);
+    if (claimedVideoId && canRestoreDraft) {
+      const rollbackFilter: Record<string, unknown> = {
+        _id: claimedVideoId,
+        ownerId,
+        status: "waiting_for_upload",
+      };
+
+      if (muxUploadId) {
+        rollbackFilter.muxUploadId = muxUploadId;
+      } else {
+        rollbackFilter.$or = [
+          { muxUploadId: { $exists: false } },
+          { muxUploadId: null },
+        ];
+      }
+
+      await Video.updateOne(
+        rollbackFilter,
+        {
+          $set: { status: "draft" },
+          $unset: { muxUploadId: "" },
+        },
+      ).catch((rollbackError) => {
+        console.error(
+          "Failed to restore draft after upload error:",
+          rollbackError,
+        );
+      });
+    }
 
     return res.status(500).json({
       success: false,
@@ -230,6 +381,7 @@ export async function resumeVideoUpload(req: Request, res: Response) {
     });
   }
 }
+
 
 export async function createVideoDraft(
   req: Request,

@@ -1,11 +1,12 @@
 
-import { MoreHorizontal, Play } from "lucide-react";
+import { MoreHorizontal, Play, Upload } from "lucide-react";
 import type { VideoItem } from "../../types/studioVideo";
 
 interface VideoTableProps {
   videos: VideoItem[];
   onEdit: (video: VideoItem) => void;
   onDelete: (video: VideoItem) => void | Promise<void>;
+  onContinueUpload: (video: VideoItem) => void;
   actionMenuId: string | null;
   setActionMenuId: (id: string | null) => void;
   deletingVideoId: string | null;
@@ -33,6 +34,7 @@ export default function VideoTable({
   videos,
   onEdit,
   onDelete,
+  onContinueUpload,
   actionMenuId,
   setActionMenuId,
   deletingVideoId,
@@ -97,6 +99,19 @@ export default function VideoTable({
 
                   {actionMenuId === video.id && (
                     <div className="video-actions-menu">
+                      {video.status === "Draft" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActionMenuId(null);
+                            onContinueUpload(video);
+                          }}
+                        >
+                          <Upload size={15} />
+                          Continue upload
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => {
