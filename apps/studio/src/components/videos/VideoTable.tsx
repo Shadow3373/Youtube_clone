@@ -7,6 +7,7 @@ interface VideoTableProps {
   onEdit: (video: VideoItem) => void;
   onDelete: (video: VideoItem) => void | Promise<void>;
   onContinueUpload: (video: VideoItem) => void;
+  onPreview: (video: VideoItem) => void;
   actionMenuId: string | null;
   setActionMenuId: (id: string | null) => void;
   deletingVideoId: string | null;
@@ -38,6 +39,7 @@ export default function VideoTable({
   actionMenuId,
   setActionMenuId,
   deletingVideoId,
+  onPreview,
 }: VideoTableProps) {
   return (
     <div className="table-scroll">
@@ -59,9 +61,23 @@ export default function VideoTable({
             <tr key={video.id}>
               <td>
                 <div className="video-cell">
-                  <VideoThumbnail video={video} />
+                  <button
+                    type="button"
+                    className="video-preview-trigger"
+                    onClick={() => onPreview(video)}
+                    aria-label={`Preview ${video.title}`}
+                  >
+                    <VideoThumbnail video={video} />
+                  </button>
+
                   <div className="video-title-wrap">
-                    <strong>{video.title}</strong>
+                    <button
+                      type="button"
+                      className="video-title-button"
+                      onClick={() => onPreview(video)}
+                    >
+                      {video.title}
+                    </button>
                     <span>Video · Standard</span>
                   </div>
                 </div>

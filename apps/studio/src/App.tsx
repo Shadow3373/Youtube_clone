@@ -58,6 +58,8 @@ import {
 
 import VideoTable from "./components/videos/VideoTable";
 
+import VideoPreviewModal from "./components/videos/VideoPreviewModal";
+
 import type { VideoItem } from "./types/studioVideo";
 
 import { uploadVideo } from "./lib/videoUpload";
@@ -494,7 +496,8 @@ function App() {
     useState<VideoItem | null>(null);
 
 
-
+  const [previewVideo, setPreviewVideo] =
+    useState<VideoItem | null>(null);
 
 
   const filteredVideos = videos.filter((video) =>
@@ -1460,12 +1463,13 @@ function App() {
 
                   onContinueUpload={handleContinueUpload}
 
+                  onPreview={setPreviewVideo}
+
                   actionMenuId={actionMenuId}
 
                   setActionMenuId={setActionMenuId}
 
                   deletingVideoId={deletingVideoId}
-
                 />
 
               </section>
@@ -1575,6 +1579,8 @@ function App() {
                       onDelete={handleDeleteVideo}
 
                       onContinueUpload={handleContinueUpload}
+
+                      onPreview={setPreviewVideo}
 
                       actionMenuId={actionMenuId}
 
@@ -2510,7 +2516,12 @@ function App() {
 
       )}
 
-
+      {previewVideo && (
+        <VideoPreviewModal
+          video={previewVideo}
+          onClose={() => setPreviewVideo(null)}
+        />
+      )}
 
     </div>
 

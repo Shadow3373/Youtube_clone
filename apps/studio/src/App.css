@@ -2329,3 +2329,136 @@ button:disabled {
     gap: 10px;
   }
 }
+
+
+.video-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(0 0 0 / 75%);
+  backdrop-filter: blur(6px);
+}
+
+.video-preview-modal {
+  width: min(900px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  color: var(--text, #f5f5f7);
+  background: var(--surface, #15151d);
+  border: 1px solid var(--border, #30303b);
+  border-radius: 18px;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 45%);
+}
+
+.video-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+}
+
+.video-preview-header h2 {
+  margin: 6px 0 0;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.video-preview-player {
+  width: 100%;
+  background: #000;
+}
+
+.video-preview-unavailable {
+  display: flex;
+  min-height: 300px;
+  padding: 32px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  color: #c4b5fd;
+}
+
+.video-preview-unavailable h3 {
+  margin: 16px 0 8px;
+  color: #f5f5f7;
+}
+
+.video-preview-unavailable p {
+  max-width: 420px;
+  color: #a1a1b2;
+}
+
+.video-preview-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  padding: 20px 24px;
+}
+
+.video-preview-details > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.video-preview-label {
+  font-size: 12px;
+  color: #9696a8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+@media (max-width: 600px) {
+  .video-preview-backdrop {
+    padding: 12px;
+  }
+
+  .video-preview-header,
+  .video-preview-details {
+    padding: 16px;
+  }
+
+  .video-preview-details {
+    gap: 20px;
+  }
+
+  .video-preview-unavailable {
+    min-height: 220px;
+  }
+}
+
+.video-preview-trigger,
+.video-title-button {
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.video-preview-trigger {
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.video-title-button {
+  font-weight: 600;
+}
+
+.video-title-button:hover {
+  color: #b9a1ff;
+}
+
+.video-preview-trigger:focus-visible,
+.video-title-button:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 3px;
+}
