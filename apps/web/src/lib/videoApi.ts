@@ -5,7 +5,9 @@ export interface PublicVideo {
     thumbnailUrl: string | null;
     playbackId: string;
     durationSeconds: number | null;
+    views: number;
     createdAt: string;
+    updatedAt: string;
     channel: {
         id: string;
         name: string;
@@ -115,4 +117,29 @@ export function formatRelativeDate(dateString: string): string {
     const days = Math.floor(hours / 24);
     if (days < 7) return `${days}d ago`;
     return new Date(timestamp).toLocaleDateString();
+}
+
+
+export async function recordPublicVideoView(
+  videoId: string,
+  viewerKey: string,
+): Promise<number> {
+  const response = await fetch(
+    `${API_BASE_URL}/videos/${encodeURIComponent(videoId)}/views`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ viewerKey }),
+    },
+  );
+
+  const result = await response.json().catch(() => null);
+
+  if (!response.ok || result?.success !== true) {
+    throw new Error(result?.message || "Unable to record video view.");
+  }
+
+  return Number(result.views ?? 0);
 }

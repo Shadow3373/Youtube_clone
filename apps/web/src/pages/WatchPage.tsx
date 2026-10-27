@@ -7,6 +7,7 @@ import {
   formatRelativeDate,
   type PublicVideo,
 } from "../lib/videoApi";
+import { recordPublicVideoView } from "../lib/videoApi";
 import VideoThumbnail from "../components/VideoThumbnail";
 import "../App.css";
 
@@ -17,6 +18,7 @@ export default function WatchPage() {
   const navigate = useNavigate();
 
   const [videos, setVideos] = useState<PublicVideo[]>([]);
+  const [viewCount, setViewCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -50,6 +52,47 @@ export default function WatchPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!videoId) return;
+
+    let cancelled = false;
+    const storageKey = `streamsphere-viewed:${videoId}`;
+
+    async function recordView() {
+      try {
+        let viewerKey = sessionStorage.getItem(storageKey);
+
+        if (!viewerKey) {
+          viewerKey = crypto.randomUUID();
+        }
+
+        const alreadyViewed = sessionStorage.getItem(storageKey);
+
+        if (alreadyViewed) {
+          return;
+        }
+
+        // Store before requesting so rerenders don't submit again.
+        sessionStorage.setItem(storageKey, viewerKey);
+
+        const count = await recordPublicVideoView(videoId!, viewerKey);
+
+        if (!cancelled) {
+          setViewCount(count);
+        }
+      } catch (error) {
+        // View tracking should not prevent the video from playing.
+        console.error("View tracking failed:", error);
+      }
+    }
+
+    void recordView();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId]);
 
   const video = useMemo(
     () => videos.find((item) => item.id === videoId),
@@ -152,6 +195,11 @@ export default function WatchPage() {
               {formatDuration(video.durationSeconds)}
             </p>
             <p>{video.description || "No description has been added yet."}</p>
+            <p className="watch-view-count">
+              {viewCount === null
+                ? "Views updating…"
+                : `${viewCount.toLocaleString()} ${viewCount === 1 ? "view" : "views"}`}
+            </p>
           </div>
         </section>
 

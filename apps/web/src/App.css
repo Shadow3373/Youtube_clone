@@ -1543,3 +1543,8 @@ a {
   }
 }
 
+.watch-view-count {
+  margin: 0 0 12px;
+  color: #b4a9c2;
+  font-size: 13px;
+}

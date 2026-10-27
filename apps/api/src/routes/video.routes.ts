@@ -9,6 +9,7 @@ import {
   updateMyVideo,
   deleteMyVideo,
 } from "../controllers/video.controller";
+import { recordVideoView } from "../controllers/video-views.controller";
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.post("/uploads", authenticate, createVideoUpload);
 router.post("/drafts", authenticate, createVideoDraft);
 router.post("/:videoId/uploads", authenticate, resumeVideoUpload);
 
+router.post("/:videoId/views", recordVideoView);
 router.patch("/:videoId", authenticate, updateMyVideo);
 router.delete("/:videoId", authenticate, deleteMyVideo);
 

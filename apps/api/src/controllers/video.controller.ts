@@ -775,7 +775,7 @@ export async function getPublicVideos(req: Request, res: Response) {
     const [videos, total] = await Promise.all([
       Video.find(filter)
         .select(
-          "_id channelId title description thumbnailUrl playbackId durationSeconds createdAt",
+          "_id channelId title description visibility status thumbnailUrl playbackId durationSeconds views createdAt updatedAt",
         )
         .populate({
           path: "channelId",
@@ -808,7 +808,9 @@ export async function getPublicVideos(req: Request, res: Response) {
             `https://image.mux.com/${video.playbackId}/thumbnail.jpg?time=1`,
           playbackId: video.playbackId,
           durationSeconds: video.durationSeconds,
+          views: video.views ?? 0,
           createdAt: video.createdAt,
+          updatedAt: video.updatedAt,
           channel: {
             id: channel._id.toString(),
             name: channel.name,
